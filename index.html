@@ -16,12 +16,11 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        // 定義圖標組件 (手動定義簡單圖標以確保相容性)
+        // 定義圖標組件
         const Plus = () => <span style={{fontSize:'20px'}}>+</span>;
         const Trash2 = () => <span style={{fontSize:'16px'}}>🗑️</span>;
         const RotateCw = ({className}) => <span className={className} style={{display:'inline-block'}}>🔄</span>;
         const Sparkles = () => <span>✨</span>;
-        const Trophy = () => <span>🏆</span>;
         const Share2 = () => <span>🔗</span>;
         const Check = () => <span>✅</span>;
 
@@ -49,7 +48,6 @@
             const [newItemText, setNewItemText] = React.useState('');
             const [isSpinning, setIsSpinning] = React.useState(false);
             const [rotation, setRotation] = React.useState(0);
-            const [winner, setWinner] = React.useState(null);
             const [showCopied, setShowCopied] = React.useState(false);
 
             const handleShare = () => {
@@ -68,18 +66,15 @@
             const spinWheel = () => {
                 if (isSpinning || items.length < 2) return;
                 setIsSpinning(true);
-                setWinner(null);
+                
+                const spinCount = 5 + Math.floor(Math.random() * 5);
                 const randomDegrees = Math.floor(Math.random() * 360);
-                const spinCount = 5 + Math.floor(Math.random() * 5); 
-                const newRotation = rotation + (spinCount * 360) + randomDegrees;
-                setRotation(newRotation);
+                const totalNewRotation = rotation + (spinCount * 360) + randomDegrees;
+                
+                setRotation(totalNewRotation);
+
                 setTimeout(() => {
                     setIsSpinning(false);
-                    const degrees = newRotation % 360;
-                    const sliceAngle = 360 / items.length;
-                    const effectiveAngle = (360 - degrees + 270) % 360; 
-                    const winnerIndex = Math.floor(effectiveAngle / sliceAngle);
-                    setWinner(items[winnerIndex].text);
                 }, 3000);
             };
 
@@ -87,21 +82,33 @@
                 const COLORS = ['#A6BCC9', '#F4C2C2', '#B0E0E6', '#FFDAB9', '#E6E6FA', '#98FB98', '#FFB6C1'];
                 return items.map((item, index) => {
                     const slicePercent = 1 / items.length;
-                    const angle = (index / items.length) * 2 * Math.PI;
+                    const startAngle = (index / items.length) * 2 * Math.PI;
                     const endAngle = ((index + 1) / items.length) * 2 * Math.PI;
-                    const startX = Math.cos(angle);
-                    const startY = Math.sin(angle);
+                    
+                    const startX = Math.cos(startAngle);
+                    const startY = Math.sin(startAngle);
                     const endX = Math.cos(endAngle);
                     const endY = Math.sin(endAngle);
+                    
                     const largeArcFlag = slicePercent > 0.5 ? 1 : 0;
                     const pathData = `M 0 0 L ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} L 0 0`;
-                    const textAngle = (angle + endAngle) / 2;
+                    
+                    const textAngle = (startAngle + endAngle) / 2;
                     const tx = Math.cos(textAngle) * 0.65;
                     const ty = Math.sin(textAngle) * 0.65;
+                    
                     return (
                         <g key={item.id}>
                             <path d={pathData} fill={COLORS[index % COLORS.length]} stroke="white" strokeWidth="0.02" />
-                            <text x={tx} y={ty} fill="#4a5568" fontSize="0.12" fontWeight="bold" textAnchor="middle" transform={`rotate(${(textAngle * 180 / Math.PI) + 90}, ${tx}, ${ty})`}>
+                            <text 
+                                x={tx} y={ty} 
+                                fill="#4a5568" 
+                                fontSize="0.12" 
+                                fontWeight="bold" 
+                                textAnchor="middle" 
+                                transform={`rotate(${(textAngle * 180 / Math.PI) + 90}, ${tx}, ${ty})`}
+                                style={{ pointerEvents: 'none', userSelect: 'none' }}
+                            >
                                 {item.text.length > 5 ? item.text.substring(0, 4) + '..' : item.text}
                             </text>
                         </g>
@@ -113,14 +120,14 @@
                 <div className="min-h-screen p-8 flex flex-col items-center">
                     <header className="mb-8 text-center bg-white px-8 py-4 rounded-full shadow-lg border-4 border-blue-200">
                         <h1 className="text-3xl font-bold flex items-center gap-2">
-                            <Sparkles /> 英短幸運輪 <Sparkles />
+                            <Sparkles /> 藍白英短幸運輪 <Sparkles />
                         </h1>
                     </header>
 
                     <div className="flex flex-col lg:flex-row gap-12 items-center">
                         <div className="relative w-80 h-80 md:w-96 md:h-96">
                             {/* 貓咪指針 */}
-                            <div className="absolute -top-16 left-1/2 -translate-x-1/2 z-20 w-32 h-32">
+                            <div className="absolute -top-16 left-1/2 -translate-x-1/2 z-20 w-32 h-32 pointer-events-none">
                                 <svg viewBox="0 0 100 100">
                                     <ellipse cx="50" cy="60" rx="40" ry="35" fill="#94a3b8" />
                                     <path d="M15 40 L10 10 L40 25 Z" fill="#94a3b8" />
@@ -133,47 +140,57 @@
                                     </g>
                                 </svg>
                             </div>
-                            {/* 轉盤 */}
-                            <div className="w-full h-full rounded-full border-8 border-white shadow-2xl overflow-hidden bg-white"
-                                 style={{ transform: `rotate(${rotation}deg)`, transition: isSpinning ? 'transform 3s cubic-bezier(0.2, 0, 0.2, 1)' : 'none' }}>
+                            {/* 轉盤本體 */}
+                            <div className="w-full h-full rounded-full border-8 border-white shadow-2xl overflow-hidden bg-white relative"
+                                 style={{ 
+                                     transform: `rotate(${rotation}deg)`, 
+                                     transition: isSpinning ? 'transform 3s cubic-bezier(0.15, 0, 0.15, 1)' : 'none' 
+                                 }}>
                                 <svg viewBox="-1 -1 2 2" className="w-full h-full transform -rotate-90">
                                     {renderSlices()}
                                 </svg>
                             </div>
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full shadow-inner z-10 border-2 border-blue-100"></div>
                         </div>
 
                         <div className="bg-white p-6 rounded-3xl shadow-xl w-80 md:w-96 border border-pink-100">
-                            {winner && <div className="mb-4 p-4 bg-blue-50 rounded-xl text-center font-bold text-blue-600 animate-bounce">
-                                <Trophy /> 中咗：{winner}
-                            </div>}
+                            <div className="mb-4 min-h-[40px] flex items-center justify-center">
+                                <div className="text-gray-400 italic font-medium">
+                                    {isSpinning ? "主子揀緊...喵..." : "轉下睇下主子選中邊格！"}
+                                </div>
+                            </div>
                             
                             <div className="flex gap-2 mb-4">
-                                <button onClick={spinWheel} disabled={isSpinning} className="flex-1 bg-blue-400 text-white py-3 rounded-xl font-bold hover:bg-blue-500">
-                                    <RotateCw className={isSpinning ? "animate-spin" : ""} /> 轉啦！
+                                <button onClick={spinWheel} disabled={isSpinning || items.length < 2} 
+                                    className={`flex-1 text-white py-4 rounded-xl font-bold transition-all shadow-md ${isSpinning || items.length < 2 ? 'bg-gray-300' : 'bg-blue-400 hover:bg-blue-500 hover:scale-[1.02]'}`}>
+                                    <RotateCw className={isSpinning ? "animate-spin" : ""} /> {isSpinning ? '轉緊...' : '轉啦！'}
                                 </button>
-                                <button onClick={handleShare} className="bg-pink-100 text-pink-500 p-3 rounded-xl">
+                                <button onClick={handleShare} className="bg-pink-100 text-pink-500 p-4 rounded-xl hover:bg-pink-200 transition-colors">
                                     {showCopied ? <Check /> : <Share2 />}
                                 </button>
                             </div>
 
-                            <div className="space-y-2 max-h-40 overflow-auto">
+                            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                                 {items.map(item => (
-                                    <div key={item.id} className="flex justify-between p-2 border-b">
-                                        <span>{item.text}</span>
-                                        <button onClick={() => setItems(items.filter(i => i.id !== item.id))}><Trash2 /></button>
+                                    <div key={item.id} className="flex justify-between items-center p-2 bg-gray-50 rounded-lg border border-gray-100">
+                                        <span className="text-sm font-medium">{item.text}</span>
+                                        <button onClick={() => setItems(items.filter(i => i.id !== item.id))} className="text-gray-300 hover:text-red-400">
+                                            <Trash2 />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
                             
                             <form className="mt-4 flex gap-2" onSubmit={(e) => {
                                 e.preventDefault();
-                                if(newItemText) {
-                                    setItems([...items, {id: Date.now(), text: newItemText}]);
+                                if(newItemText.trim()) {
+                                    setItems([...items, {id: Date.now(), text: newItemText.trim()}]);
                                     setNewItemText('');
                                 }
                             }}>
-                                <input className="flex-1 border p-2 rounded-lg" value={newItemText} onChange={e => setNewItemText(e.target.value)} placeholder="加新野..." />
-                                <button className="bg-pink-400 text-white px-3 rounded-lg"><Plus /></button>
+                                <input className="flex-1 border-2 border-gray-100 p-2 rounded-xl focus:border-pink-300 outline-none transition-all text-sm" 
+                                    value={newItemText} onChange={e => setNewItemText(e.target.value)} placeholder="加新選項..." />
+                                <button className="bg-pink-400 text-white px-3 rounded-xl hover:bg-pink-500"><Plus /></button>
                             </form>
                         </div>
                     </div>
