@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>英短幸運轉盤</title>
+    <!-- 載入必要工具 -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 載入圖標庫 -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-pink-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // 定義圖標組件 (手動定義簡單圖標以確保相容性)
+        const Plus = () => <span style={{fontSize:'20px'}}>+</span>;
+        const Trash2 = () => <span style={{fontSize:'16px'}}>🗑️</span>;
+        const RotateCw = ({className}) => <span className={className} style={{display:'inline-block'}}>🔄</span>;
+        const Sparkles = () => <span>✨</span>;
+        const Trophy = () => <span>🏆</span>;
+        const Share2 = () => <span>🔗</span>;
+        const Check = () => <span>✅</span>;
+
+        const App = () => {
+            const getInitialItems = () => {
+                try {
+                    const params = new URLSearchParams(window.location.search);
+                    const sharedItems = params.get('items');
+                    if (sharedItems) {
+                        return sharedItems.split(',').map((text, index) => ({
+                            id: index,
+                            text: decodeURIComponent(text)
+                        }));
+                    }
+                } catch (e) {}
+                return [
+                    { id: 1, text: '食罐罐' },
+                    { id: 2, text: '訓晏覺' },
+                    { id: 3, text: '抓梳化' },
+                    { id: 4, text: '睇雀仔' }
+                ];
+            };
+
+            const [items, setItems] = React.useState(getInitialItems);
+            const [newItemText, setNewItemText] = React.useState('');
+            const [isSpinning, setIsSpinning] = React.useState(false);
+            const [rotation, setRotation] = React.useState(0);
+            const [winner, setWinner] = React.useState(null);
+            const [showCopied, setShowCopied] = React.useState(false);
+
+            const handleShare = () => {
+                const itemTexts = items.map(i => encodeURIComponent(i.text)).join(',');
+                const shareUrl = `${window.location.origin}${window.location.pathname}?items=${itemTexts}`;
+                const textArea = document.createElement("textarea");
+                textArea.value = shareUrl;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                setShowCopied(true);
+                setTimeout(() => setShowCopied(false), 2000);
+            };
+
+            const spinWheel = () => {
+                if (isSpinning || items.length < 2) return;
+                setIsSpinning(true);
+                setWinner(null);
+                const randomDegrees = Math.floor(Math.random() * 360);
+                const spinCount = 5 + Math.floor(Math.random() * 5); 
+                const newRotation = rotation + (spinCount * 360) + randomDegrees;
+                setRotation(newRotation);
+                setTimeout(() => {
+                    setIsSpinning(false);
+                    const degrees = newRotation % 360;
+                    const sliceAngle = 360 / items.length;
+                    const effectiveAngle = (360 - degrees + 270) % 360; 
+                    const winnerIndex = Math.floor(effectiveAngle / sliceAngle);
+                    setWinner(items[winnerIndex].text);
+                }, 3000);
+            };
+
+            const renderSlices = () => {
+                const COLORS = ['#A6BCC9', '#F4C2C2', '#B0E0E6', '#FFDAB9', '#E6E6FA', '#98FB98', '#FFB6C1'];
+                return items.map((item, index) => {
+                    const slicePercent = 1 / items.length;
+                    const angle = (index / items.length) * 2 * Math.PI;
+                    const endAngle = ((index + 1) / items.length) * 2 * Math.PI;
+                    const startX = Math.cos(angle);
+                    const startY = Math.sin(angle);
+                    const endX = Math.cos(endAngle);
+                    const endY = Math.sin(endAngle);
+                    const largeArcFlag = slicePercent > 0.5 ? 1 : 0;
+                    const pathData = `M 0 0 L ${startX} ${startY} A 1 1 0 ${largeArcFlag} 1 ${endX} ${endY} L 0 0`;
+                    const textAngle = (angle + endAngle) / 2;
+                    const tx = Math.cos(textAngle) * 0.65;
+                    const ty = Math.sin(textAngle) * 0.65;
+                    return (
+                        <g key={item.id}>
+                            <path d={pathData} fill={COLORS[index % COLORS.length]} stroke="white" strokeWidth="0.02" />
+                            <text x={tx} y={ty} fill="#4a5568" fontSize="0.12" fontWeight="bold" textAnchor="middle" transform={`rotate(${(textAngle * 180 / Math.PI) + 90}, ${tx}, ${ty})`}>
+                                {item.text.length > 5 ? item.text.substring(0, 4) + '..' : item.text}
+                            </text>
+                        </g>
+                    );
+                });
+            };
+
+            return (
+                <div className="min-h-screen p-8 flex flex-col items-center">
+                    <header className="mb-8 text-center bg-white px-8 py-4 rounded-full shadow-lg border-4 border-blue-200">
+                        <h1 className="text-3xl font-bold flex items-center gap-2">
+                            <Sparkles /> 英短幸運輪 <Sparkles />
+                        </h1>
+                    </header>
+
+                    <div className="flex flex-col lg:flex-row gap-12 items-center">
+                        <div className="relative w-80 h-80 md:w-96 md:h-96">
+                            {/* 貓咪指針 */}
+                            <div className="absolute -top-16 left-1/2 -translate-x-1/2 z-20 w-32 h-32">
+                                <svg viewBox="0 0 100 100">
+                                    <ellipse cx="50" cy="60" rx="40" ry="35" fill="#94a3b8" />
+                                    <path d="M15 40 L10 10 L40 25 Z" fill="#94a3b8" />
+                                    <path d="M85 40 L90 10 L60 25 Z" fill="#94a3b8" />
+                                    <path d="M 50 25 L 15 62 C 15 62, 20 95, 50 95 C 80 95, 85 62, 85 62 Z" fill="#ffffff" />
+                                    <circle cx="35" cy="55" r="8" fill="#d97706" /><circle cx="65" cy="55" r="8" fill="#d97706" />
+                                    <g transform="translate(42, 85)">
+                                        <path d="M0 0 C-5 10, -5 20, 8 25 C21 20, 21 10, 16 0 Z" fill="#fff" stroke="#94a3b8" strokeWidth="1"/>
+                                        <ellipse cx="8" cy="12" rx="4" ry="6" fill="#fca5a5" />
+                                    </g>
+                                </svg>
+                            </div>
+                            {/* 轉盤 */}
+                            <div className="w-full h-full rounded-full border-8 border-white shadow-2xl overflow-hidden bg-white"
+                                 style={{ transform: `rotate(${rotation}deg)`, transition: isSpinning ? 'transform 3s cubic-bezier(0.2, 0, 0.2, 1)' : 'none' }}>
+                                <svg viewBox="-1 -1 2 2" className="w-full h-full transform -rotate-90">
+                                    {renderSlices()}
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-3xl shadow-xl w-80 md:w-96 border border-pink-100">
+                            {winner && <div className="mb-4 p-4 bg-blue-50 rounded-xl text-center font-bold text-blue-600 animate-bounce">
+                                <Trophy /> 中咗：{winner}
+                            </div>}
+                            
+                            <div className="flex gap-2 mb-4">
+                                <button onClick={spinWheel} disabled={isSpinning} className="flex-1 bg-blue-400 text-white py-3 rounded-xl font-bold hover:bg-blue-500">
+                                    <RotateCw className={isSpinning ? "animate-spin" : ""} /> 轉啦！
+                                </button>
+                                <button onClick={handleShare} className="bg-pink-100 text-pink-500 p-3 rounded-xl">
+                                    {showCopied ? <Check /> : <Share2 />}
+                                </button>
+                            </div>
+
+                            <div className="space-y-2 max-h-40 overflow-auto">
+                                {items.map(item => (
+                                    <div key={item.id} className="flex justify-between p-2 border-b">
+                                        <span>{item.text}</span>
+                                        <button onClick={() => setItems(items.filter(i => i.id !== item.id))}><Trash2 /></button>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            <form className="mt-4 flex gap-2" onSubmit={(e) => {
+                                e.preventDefault();
+                                if(newItemText) {
+                                    setItems([...items, {id: Date.now(), text: newItemText}]);
+                                    setNewItemText('');
+                                }
+                            }}>
+                                <input className="flex-1 border p-2 rounded-lg" value={newItemText} onChange={e => setNewItemText(e.target.value)} placeholder="加新野..." />
+                                <button className="bg-pink-400 text-white px-3 rounded-lg"><Plus /></button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
